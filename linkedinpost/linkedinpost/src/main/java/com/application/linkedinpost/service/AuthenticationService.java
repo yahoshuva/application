@@ -8,11 +8,16 @@ import com.application.linkedinpost.utils.EmailService;
 import com.application.linkedinpost.utils.Encoder;
 import com.application.linkedinpost.utils.JsonWebToken;
 import jakarta.mail.MessagingException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Transient;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import org.hibernate.resource.beans.internal.BeansMessageLogger_$logger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestAttribute;
 
 import java.io.UnsupportedEncodingException;
 import java.security.SecureRandom;
@@ -26,8 +31,11 @@ public class AuthenticationService {
     private final JsonWebToken jsonWebToken;
     private EmailService emailService;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     private static final Logger logger = LoggerFactory.getLogger(AuthenticationService.class);
-    private final int durationInMinutes =1;
+    private final int durationInMinutes =2;
 
     public AuthenticationService(AuthenticationUserRepository authenticationUserRepository, Encoder encoder, JsonWebToken jsonWebToken,EmailService emailService) {
         this.authenticationUserRepository = authenticationUserRepository;
@@ -167,6 +175,35 @@ public class AuthenticationService {
         return new AuthenticationResponseBody(token,"Authentication succeeded.");
 
 
+    }
+
+
+
+    public AuthenticationUser updateUserProfile(Long userId,String firstName,String lastName,String company,String position,String location){
+        AuthenticationUser user= authenticationUserRepository.findById(userId).orElseThrow(()->new RuntimeException("User not found"));
+        if(firstName!=null) user.setFirstName(firstName);
+        if(lastName!=null) user.setLastName(lastName);
+        if(company!=null) user.setCompany(company);
+        if(position!=null)user.setPosition(position);
+        if(location!=null)user.setLocation(location);
+
+        return authenticationUserRepository.save(user);
+    }
+
+//    public void deleteUser(Long id) {
+//        authenticationUserRepository.deleteById(id);
+//
+//    }
+
+ @Transactional
+    public void deleteUser(Long userId){
+        AuthenticationUser user = entityManager.find(AuthenticationUser.class, userId);
+        if(user !=null){
+            entityManager.createNativeQuery("DELETE FROM posts_likes WHERE user_id= :userId")
+                    .setParameter("userId", userId)
+                    .executeUpdate();
+            authenticationUserRepository.deleteById(userId);
+        }
     }
 }
 
